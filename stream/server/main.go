@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 
 	proto "github.com/micro/examples/stream/server/proto"
 	"github.com/micro/go-micro"
+	"github.com/micro/go-micro/service/grpc"
 )
 
 type Streamer struct{}
@@ -14,6 +16,9 @@ type Streamer struct{}
 // Server side stream
 func (e *Streamer) ServerStream(ctx context.Context, req *proto.Request, stream proto.Streamer_ServerStreamStream) error {
 	log.Printf("Got msg %v", req.Count)
+
+	return errors.New("some error")
+
 	for i := 0; i < int(req.Count); i++ {
 		if err := stream.Send(&proto.Response{Count: int64(i)}); err != nil {
 			return err
@@ -41,7 +46,7 @@ func (e *Streamer) Stream(ctx context.Context, stream proto.Streamer_StreamStrea
 
 func main() {
 	// new service
-	service := micro.NewService(
+	service := grpc.NewService(
 		micro.Name("go.micro.srv.stream"),
 	)
 

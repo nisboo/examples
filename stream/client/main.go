@@ -1,11 +1,14 @@
 package main
 
 import (
-	"fmt"
-
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/pprof"
+
 	proto "github.com/micro/examples/stream/server/proto"
-	"github.com/micro/go-micro"
+	"github.com/micro/go-micro/service/grpc"
 )
 
 func bidirectional(cl proto.StreamerService) {
@@ -63,15 +66,39 @@ func serverStream(cl proto.StreamerService) {
 }
 
 func main() {
-	service := micro.NewService()
+	go func() { panic(profilerSetup()) }()
+
+	service := grpc.NewService()
 	service.Init()
 
 	// create client
 	cl := proto.NewStreamerService("go.micro.srv.stream", service.Client())
 
 	// bidirectional stream
-	bidirectional(cl)
+	// bidirectional(cl)
 
 	// server side stream
-	serverStream(cl)
+	for {
+		serverStream(cl)
+	}
+}
+
+func profilerSetup() error {
+	mux := &http.ServeMux{}
+
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	mux.HandleFunc("/debug/pprof/block", pprof.Handler("block").ServeHTTP)
+	mux.HandleFunc("/debug/pprof/heap", pprof.Handler("heap").ServeHTTP)
+	mux.HandleFunc("/debug/pprof/goroutine", pprof.Handler("goroutine").ServeHTTP)
+	mux.HandleFunc("/debug/pprof/threadcreate", pprof.Handler("threadcreate").ServeHTTP)
+
+	if err := http.ListenAndServe(":6060", mux); err != nil {
+		return err
+	}
+
+	return errors.New("pprof server stopped")
 }
